@@ -1,0 +1,20 @@
+{
+  "name": "koishi-plugin-awa-mc-ament",
+  "description": "koishi-plugin-awa-mc-ament",
+  "version": "0.0.2-SNAPSHOT",
+  "main": "lib/index.js",
+  "typings": "lib/index.d.ts",
+  "files": [
+    "lib",
+    "dist"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "chatbot",
+    "koishi",
+    "plugin"
+  ],
+  "peerDependencies": {
+    "koishi": "^4.18.7"
+  }
+}
