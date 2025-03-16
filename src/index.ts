@@ -121,7 +121,10 @@ export function apply(ctx: Context, config) {
             if (config.VerboseLoggerMode)
                 await session.send(`[debug]ament_icon_base64 = ${ament_icon_base64.slice(0, 50)}`)
 
-
+            if (config.VerboseLoggerMode) {
+                await session.send(`[debug]fontpath = ${config.fontPath}`);
+                await session.send(`[debug]bgpath = ${config.bgPath}`);
+            }
             const font_base64 = await fileToBase64(config.fontPath);
             const bg_base64 = await fileToBase64(config.bgPath);
 
