@@ -1,0 +1,21 @@
+{
+  "name": "koishi-plugin-qwq-mc-ament",
+  "description": "qwq-mc-ament。生成MC成就图，支持自定义成就名称、描述、图标。使用puppeteer渲染。[点我查看效果预览图](https://i0.hdslb.com/bfs/article/5184c159f7a1c4b21f15120d82f1f968312276085.png)",
+  "version": "1.0.0",
+  "main": "lib/index.js",
+  "typings": "lib/index.d.ts",
+  "files": [
+    "lib",
+    "dist"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "chatbot",
+    "koishi",
+    "plugin",
+    "MC成就图"
+  ],
+  "peerDependencies": {
+    "koishi": "^4.18.7"
+  }
+}
