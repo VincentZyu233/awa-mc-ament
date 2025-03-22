@@ -29,6 +29,11 @@ export const Config = Schema.intersect(
         ).description("PuppeteerConfig-浏览器配置相关"),
         Schema.object(
             {
+                mcicon_backend_address: Schema.string().default('localhost:8989').description("mc图标后端地址，ip+port"),
+            }
+        ).description("MCICON-后端服务相关"),
+        Schema.object(
+            {
                 VerboseLoggerMode: Schema.boolean().default(false).description("是否开启详细输出")
             }
         ).description("DebugConfig-调试内容相关")
@@ -83,7 +88,9 @@ export function apply(ctx: Context, config) {
                     return;
                 }
                 ctx.logger.info(JSON.stringify(bestItem.res));
-                ament_icon_image_element = `http://localhost:8989/mcimg/${bestItem.res.name.toString().replace(/\\/g, "/")}`;
+                // ament_icon_image_element = `http://localhost:8989/mcimg/${bestItem.res.name.toString().replace(/\\/g, "/")}`;
+                ament_icon_image_element = `http://${config.mcicon_backend_address}/mcimg/${bestItem.res.name.toString().replace(/\\/g, "/")}`;
+
 
             } else if (iconSource === "QUOTEMSG") { //引用是url
                 icon_format = "url";
@@ -253,7 +260,8 @@ export function apply(ctx: Context, config) {
 
     async function getBestFuzzySearchRes(session, keyword: string) {
         try {
-            let url = "http://localhost:8989/fuzzy_guess";
+            // let url = "http://localhost:8989/fuzzy_guess";
+            let url = `http://${config.mcicon_backend_address}/fuzzy_guess`;
             const params = new URLSearchParams();
             params.append("keyword", keyword);
             params.append("limit", "20");
