@@ -26,34 +26,33 @@ export const Config = Schema.intersect(
             {
                 page_screenshotquality: Schema.number().role('slider').min(0).max(100).step(1).default(60).description("Puppeteer截图质量参数， 图片压缩质量, 范围0-100")
             }
-        ),
+        ).description("PuppeteerConfig-浏览器配置相关"),
         Schema.object(
             {
                 VerboseLoggerMode: Schema.boolean().default(false).description("是否开启详细输出")
             }
-        )
+        ).description("DebugConfig-调试内容相关")
     ]
 )
 
 export function apply(ctx: Context, config) {
     // ctx.command('ament [arg0_title:string] [arg1_description:string]')
     // .action(async ({ session, options }, arg0_title, arg1_description) => {
-    ctx.command('ament', "生成MC风格的成就/进度图片\n" + "\t【注意图标获取的优先级】：引用消息的图片 > 参数传入的图片 > at用户的头像 > 默认fallback幸运方块图标。【没说明白就去看source code】\n")
+    ctx.command('ament', "生成MC风格的成就/进度图片\n" + "\t【注意图标获取的优先级】：Minecaft游戏图标 > 引用消息的图片 > 参数传入的图片 > at用户的头像 > 默认fallback幸运方块图标。【没说明白就去看source code】\n")
         // .subcommand("help")
         .option("arg0_title", '-t, --title <arg0_title:string> 成就标题', { fallback: "请输入标题" })
         .option("arg1_description", '-d, --description <arg1_description:string> 成就描述', { fallback: "请输入描述" })
         .option("arg2_icon", '-i, --icon <arg2_icon:image> 成就图标')
+        .option("arg3_mcicon", '-m, --mcicon <arg3_mcicon:string> Minecraft游戏图标搜索关键词')
 
         .action(async ({ session, options }) => {
-            const ament_title = options.arg0_title;
-            const ament_description = options.arg1_description;
 
             const fallback_img_path = path.join(__dirname, './../assets/fallback_icon.jpg');
             const fallback_base64_str = readFileSync(fallback_img_path).toString('base64');
             const fallback_base64_str_with_head = `data:image/jpeg;base64,${fallback_base64_str}`;
 
-            // icon优先级：引用消息的图片 > 参数传入的图片 > at用户的头像 > 默认fallback幸运方块图标
-            // "QUOTEMSG" > "CMDARG" > "ATUSER" > "LUCKYBLOCK"
+            // icon优先级：Minecaft游戏图标 > 引用消息的图片 > 参数传入的图片 > at用户的头像 > 默认fallback幸运方块图标
+            // "MCICON" > "QUOTEMSG" > "CMDARG" > "ATUSER" > "LUCKYBLOCK"
 
             let iconSource = "LUCKYBLOCK";
             const firstAtUser = extractAtUser(session.content);
@@ -69,13 +68,24 @@ export function apply(ctx: Context, config) {
                 if (firstImgUrl !== "")
                     iconSource = "QUOTEMSG"
             }
-            if (config.VerboseLoggerMode) {
-                await session.send(`[debug]iconSource = ${iconSource}`);
-            }
+            if (options.arg3_mcicon)
+                iconSource = "MCICON";
 
             let icon_format;
             let ament_icon_image_element; //可能是一个url，也可能是一个base64字符串, 总之是一个支持作为消息元素的格式
-            if (iconSource === "QUOTEMSG") { //引用是url
+            if (iconSource === "MCICON") {
+                icon_format = "url";
+
+                const bestItem = await getBestFuzzySearchRes(ctx, options.arg3_mcicon);
+                ctx.logger.info(`options.arg3_mcicon = ${options.arg3_mcicon}`);
+                if (bestItem.isSucceed === false) {
+                    await session.send(`获取Minecraft图标有问题哦, msg=${bestItem.res}, res=${bestItem.res}`);
+                    return;
+                }
+                ctx.logger.info(JSON.stringify(bestItem.res));
+                ament_icon_image_element = `http://localhost:8989/mcimg/${bestItem.res.name.toString().replace(/\\/g, "/")}`;
+
+            } else if (iconSource === "QUOTEMSG") { //引用是url
                 icon_format = "url";
                 ament_icon_image_element = await extractFirstImageUrl(session.quote.content);
             } else if (iconSource === "CMDARG") { //指令里面的参数是url
@@ -90,26 +100,18 @@ export function apply(ctx: Context, config) {
                 ament_icon_image_element = fallback_base64_str_with_head;
             }
 
-            if (config.VerboseLoggerMode) {
-                await session.send(
-                    `[debug]ament_title = ${ament_title}, ament_desc = ${ament_description}, ament_icon_image_element = `
-                    + h.image(ament_icon_image_element)
-                );
-            }
-            logInfo(`[debug]ament_title = ${ament_title}, ament_desc = ${ament_description}, ament_icon_image_element = ` +
-                ament_icon_image_element.slice(0, 50));
-
-
-            if (config.VerboseLoggerMode)
-                await session.send(`[debug]icon_format = ${icon_format}`);
-
-            if (config.VerboseLoggerMode) {
-                if (icon_format === "url") //ament_icon是url字符串
-                    await session.send(`[debug]ament_icon_url = ${ament_icon_image_element}`);
-                else if (icon_format === "base64") //ament_icon是base64字符串
-                    await session.send(`[debug]ament_icon_base64 = ${ament_icon_image_element.slice(0, 50)}...`)
-            }
-
+            let args_msg = "🛠️[debug]\n";
+            args_msg += `📝[options.arg0_title] = ${options.arg0_title}\n`;
+            args_msg += `📖[options.arg1_description] = ${options.arg1_description}\n`;
+            args_msg += `🎨[options.arg2_icon] = ${String(options.arg2_icon).slice(0.100)}\n`;
+            args_msg += `🖼️[options.arg3_mcicon] = ${options.arg3_mcicon}\n`;
+            args_msg += "\n"
+            args_msg += `[iconSource] = ${iconSource}`
+            args_msg += `[icon_format] = ${icon_format}\n`
+            args_msg += `[ament_icon_image_element](raw) = ${ament_icon_image_element.slice(0, 100)}\n`;
+            args_msg += "\n---------\n"
+            args_msg += `🅰️[config.fontpath] = ${config.fontPath}\n`;
+            args_msg += `🌌[config.bgpath] = ${config.bgPath}\n`;
 
             let ament_icon_base64;
             if (icon_format === "base64") {
@@ -118,21 +120,26 @@ export function apply(ctx: Context, config) {
                 const ament_icon_buffer = await ctx.http.file(ament_icon_image_element);
                 ament_icon_base64 = Buffer.from(ament_icon_buffer.data).toString('base64');
             }
-            if (config.VerboseLoggerMode)
-                await session.send(`[debug]ament_icon_base64 = ${ament_icon_base64.slice(0, 50)}`)
+            args_msg += `ament_icon_base64 = ${String(ament_icon_base64).slice(0, 50)}`;
 
             if (config.VerboseLoggerMode) {
-                await session.send(`[debug]fontpath = ${config.fontPath}`);
-                await session.send(`[debug]bgpath = ${config.bgPath}`);
+                await session.send(
+                    args_msg +
+                    `\nament_icon_image_element(image) = ` +
+                    h.image(ament_icon_image_element)
+                );
             }
+            logInfo(args_msg);
+
+
             const font_base64 = await fileToBase64(config.fontPath);
             const bg_base64 = await fileToBase64(config.bgPath);
 
             const res = await renderAmentImage(
                 ctx,
                 {
-                    title: ament_title,
-                    description: ament_description,
+                    title: options.arg0_title,
+                    description: options.arg1_description,
                     icon: ament_icon_base64,
                     iconMode: 'base64',
                     width: 320,
@@ -243,4 +250,56 @@ export function apply(ctx: Context, config) {
         // const atElements = h.select(elements, 'at');
         // return atElements.length > 0 ? atElements[0].attrs : null;
     };
+
+    async function getBestFuzzySearchRes(session, keyword: string) {
+        try {
+            let url = "http://localhost:8989/fuzzy_guess";
+            const params = new URLSearchParams();
+            params.append("keyword", keyword);
+            params.append("limit", "20");
+            if (params.toString()) url += `?${params.toString()}`;
+            ctx.logger.info(`getBestFuzzySearchRes(): url = ${url}`);
+
+            const result = await ctx.http.get(url);
+            ctx.logger.info(JSON.stringify(result).slice(0, 100));
+
+            if (result.code !== 200) {
+                await session.send(`错误, code!=200: ${result.message}`);
+                return {
+                    isSucceed: false,
+                    msg: `error: code!==200`,
+                    res: result
+                };
+            }
+
+            const data = result.data;
+            const results = data.results;
+
+            if (results.length === 0) {
+                return {
+                    isSucceed: false,
+                    msg: `results[] is empty`,
+                    res: null
+                };
+            } else {
+                return {
+                    isSucceed: true,
+                    msg: `succeed`,
+                    res: results[0]
+                };
+            }
+
+
+        } catch (e) {
+            ctx.logger.error(`error in getBestFuzzySearchRes(): ${e}`);
+            return {
+                isSucceed: false,
+                msg: `error: ${e}`,
+                res: null
+            }
+        }
+
+    }
+
+
 }
